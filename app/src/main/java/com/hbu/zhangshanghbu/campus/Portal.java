@@ -119,10 +119,15 @@ public final class Portal {
         }
     }
 
-    /** 登录顺序：先打通校园网隧道，再登依赖它的业务平台。 */
+    /**
+     * 需要用户亲自登录的平台。
+     *
+     * 校园网（WebVPN）不在这里 —— 它是登录窗口本身（打开就是统一认证），
+     * 不是「一步」；办事大厅也不默认带上，等用户真的点办事大厅时再按需登录。
+     * 所以默认只剩教务：统一认证通过后先静默验证，能单点进去就不打扰用户。
+     */
     public static String[] loginOrder(boolean withHall) {
-        if (withHall) return new String[]{P_VPN, P_JW, P_EHALL};
-        return new String[]{P_VPN, P_JW};
+        return new String[]{P_JW};
     }
 
     public static String host(String key) {
@@ -154,11 +159,15 @@ public final class Portal {
             String path = u.getPath() == null ? "/" : u.getPath();
             if (HOST_VPN.equalsIgnoreCase(host)) {
                 java.util.regex.Matcher m = java.util.regex.Pattern
-                        .compile("^(/http/[0-9a-fA-F]+/)").matcher(path);
-                if (m.find()) {
-                    String b = "https://" + host + m.group(1);
-                    if (!b.equals(base)) base = b;
-                }
+                        .compile("^(/https?/[0-9a-fA-F]+/)(.*)$").matcher(path);
+                if (!m.find()) return;
+                /* 只认「/student/...」这种明确属于教务的路径。
+                   坑：CAS 也是经 WebVPN 代理的（/https/<cas 的编码>/lyuapServer/login），
+                   以前任何 /https/<hex>/ 都当成教务根，登录完 base 变成 CAS 的前缀，
+                   后续请求全打到 CAS 上被弹回登录页。宁可退回 zhjw 多走一次 302。 */
+                if (!m.group(2).startsWith("student/")) return;
+                String b = "https://" + host + m.group(1);
+                if (!b.equals(base)) base = b;
             } else if (HOST_JW.equalsIgnoreCase(host)) {
                 if (!("https://" + HOST_JW + "/").equals(base)) base = "https://" + HOST_JW + "/";
             }
@@ -168,6 +177,11 @@ public final class Portal {
 
     public static String base() {
         return base;
+    }
+
+    /** 重新登录时清掉：旧会话的编码前缀可能已经不能用了，让它重新从 zhjw 302 学一次。 */
+    public static void clearBase() {
+        base = "";
     }
 
     /** 把 URP 相对路径拼成可访问地址：优先用真实根地址，否则退回 zhjw 让它自己 302。 */
@@ -335,16 +349,47 @@ public final class Portal {
     public static final int ST_LOGIN_CAS = 2;   // lyuapServer/login：账号 + 密码 + 算术验证码
     public static final int ST_SECOND = 3;      // loginAgain：短信验证码 / 微信扫码
     public static final int ST_INSIDE = 4;      // 已经进了某个系统
+    public static final int ST_CALLBACK = 5;    // CAS 回调 / 票据校验中，什么都不做，等它跳完
+
+    /**
+     * 是否正处在「认证跳转」中：CAS 回调（ticket=）、点了统一认证（cas_login）、
+     * 二次验证（loginAgain）、或页面本身就是统一认证页。
+     *
+     * 这些页面绝不能当成「已登录」或「需要登录」来做决定 —— 一决定就会 loadUrl
+     * 打断跳转链，WebVPN 收不到票，下一秒又回到登录页，看起来就是「登上了又跳回去」。
+     */
+    public static boolean authBusy(String url) {
+        int st = stage(url);
+        if (st == ST_CALLBACK || st == ST_SECOND || st == ST_LOGIN_CAS) return true;
+        return url != null && url.toLowerCase().contains("cas.hbu.edu.cn");
+    }
+
+    /** 只匹配真正的回调参数，不能误伤 CAS 登录页 service 里被编码的 cas_login%3Dtrue。 */
+    private static final java.util.regex.Pattern CAS_CB =
+            java.util.regex.Pattern.compile("[?&]cas_login=(true|1)", java.util.regex.Pattern.CASE_INSENSITIVE);
 
     public static int stage(String url) {
         if (url == null || url.isEmpty() || url.startsWith("about:")) return 0;
         String u = url.toLowerCase();
         if (u.contains("/loginagain")) return ST_SECOND;
+        /* 票在这条 URL 上，先别动：服务端要拿它换会话 */
+        if (u.contains("ticket=") || CAS_CB.matcher(u).find()) return ST_CALLBACK;
         if (u.contains("/lyuapserver/login")) return ST_LOGIN_CAS;
         if (u.contains("/login")) return ST_LOGIN_VPN;
         if (u.contains("/https/") || u.contains("/http/")) return ST_INSIDE;
-        if (u.contains(HOST_VPN)) return ST_INSIDE;
+        if (u.contains(HOST_VPN) || u.contains(HOST_JW)) return ST_INSIDE;
         return 0;
+    }
+
+    /** WebVPN 的会话票（登录成功才会有）。CAS 登录完但票还没回来时，这个一定是空的。 */
+    public static boolean hasVpnTicket() {
+        try {
+            String ck = android.webkit.CookieManager.getInstance()
+                    .getCookie("https://" + HOST_VPN + "/");
+            return ck != null && ck.contains("wengine_vpn_ticket");
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /** 这个阶段该怎么提示用户。 */
@@ -354,6 +399,7 @@ public final class Portal {
             case ST_LOGIN_CAS: return "填学号、密码，算出图片里的算术题填进验证码";
             case ST_SECOND: return "输入手机收到的短信验证码；也可以切「微信/企业微信扫验证」扫码";
             case ST_INSIDE: return "已进入系统，正在检查登录状态…";
+            case ST_CALLBACK: return "统一认证已通过，正在回到校园网…";
             default: return "等待页面加载…";
         }
     }

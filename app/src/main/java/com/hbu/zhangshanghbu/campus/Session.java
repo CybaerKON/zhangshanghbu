@@ -152,6 +152,7 @@ public final class Session {
         } catch (Exception ignored) {
         }
         new Store(c).clearLogin();
+        Portal.clearBase();
         state.clear();
         reason.clear();
         checkedAt.clear();
@@ -213,13 +214,12 @@ public final class Session {
             return;
         }
         /* 任何业务平台都在 WebVPN 后面：登录时永远先过校园网，再登需要的平台。
-           这样「一处登录，全部可用」才成立，而不是各功能各弹一次。 */
+           这样「一处登录，全部可用」才成立，而不是各功能各弹一次。
+           注意：登录窗口只把**真正验证过**的平台标为在线，这里不再无条件 markOk ——
+           否则单点没通过也会被当成已登录，下一次取数又弹登录页。 */
         java.util.LinkedHashSet<String> order = new java.util.LinkedHashSet<>();
         order.add(Portal.P_VPN);
         for (String p : need) order.add(p);
-        LoginDialog.show(host, order.toArray(new String[0]), () -> {
-            for (String p : order) markOk(host, p);
-            then.run();
-        });
+        LoginDialog.show(host, order.toArray(new String[0]), then);
     }
 }

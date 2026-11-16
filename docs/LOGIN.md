@@ -24,39 +24,62 @@
 
 因此：登录在 WebView 里完成，取数也在同一个源的页面里做。
 
-## 2. 顺序登录窗口
+## 2. 登录窗口：一次统一认证
 
-`campus/LoginDialog.java`，一个悬浮窗，按平台顺序推进：
+`campus/LoginDialog.java`，一个悬浮窗，只有一条主线：**统一认证 → 静默验证教务**。
 
-| 步骤 | 地址 | 说明 |
+| 阶段 | 做什么 | 结束条件 |
 | --- | --- | --- |
-| 1 校园网（WebVPN） | `https://v.hbu.cn/` | 校外访问教务的必经隧道；页面里可选 CAS 统一认证或账号登录 |
-| 2 本科教务（URP） | `https://zhjw.hbu.edu.cn/` | 若统一认证已 SSO，会直接进主页；否则再登一次 |
-| 3 办事大厅 | `https://ehall.hbu.edu.cn/` | 可「稍后再说」跳过，不影响课表与成绩 |
-
-每一步：
+| ENTRY | 打开 `https://v.hbu.cn/login`，自动点「统一认证（CAS登录业务系统）」 | **拿到 WebVPN 会话票** `wengine_vpn_ticket` |
+| CHECK | 静默打开 `https://zhjw.hbu.edu.cn/`，看是否已单点进入 | 进到教务页 → 跳过；出现登录页 → 进入 LOGIN |
+| LOGIN | 只有教务确实要自己登一次时才显示 | 进到教务页 |
+| DONE | 关窗 | — |
 
 ```
-loadUrl(平台首页)
-   ↓ onPageFinished
-注入 probe.js → 返回 {url, title, pwd, name, user, logout}
+ENTRY: loadUrl(v.hbu.cn/login)
+   ↓ onPageFinished → probe.js → {url, pwd, cas, title}
+   ↓ stage(url)
+   ├─ LOGIN_CAS / LOGIN_VPN → 提示用户登录（入口页自动点一次统一认证）
+   ├─ CALLBACK（ticket= / cas_login=true）→ 什么都不做，等它跳完
+   ├─ loginAgain → 提示二次验证
+   └─ 拿到 wengine_vpn_ticket → 校园网 OK
    ↓
-判定 isLogged(platform, url, pwd)
-   ├─ 是 → 快照 Cookie / 标记该平台在线 / 进入下一步
-   └─ 否 → 状态写「请在窗口里完成 X 登录」，等用户操作
+CHECK: loadUrl(zhjw) → 已登录？→ 跳过；否则 LOGIN
 ```
 
-### 判定规则（`LoginDialog.isLogged`）
+### 为什么不能按 URL 猜「登录好了」
+
+CAS 登录成功到 WebVPN 真正建立会话之间，还有一跳：
+
+```
+cas 登录成功 → 302 v.hbu.cn/login?cas_login=true&ticket=ST-…
+             → WebVPN 拿票换会话 → 302 目标页
+```
+
+旧版看到「在 v.hbu.cn 下、URL 里没有 `/login`」就认为登录完成并 `loadUrl` 下一步，
+把这一跳打断，票没送到，服务端又打回登录页 —— 表现出来就是「登上了又跳回登录界面」。
+所以现在：
+
+- 校园网阶段**只认会话票**，不看 URL 长相；
+- `ticket=`、`cas_login=true`、`loginAgain`、CAS 页都算「认证跳转中」，一律不决策、不导航。
+
+### 另一个坑：CAS 前缀不能当教务根
+
+CAS 也走 WebVPN 代理：`https://v.hbu.cn/https/<cas 的编码>/lyuapServer/login`。
+旧版把任意 `/https/<hex>/` 都记成教务根地址，登录完成后所有 URP 请求都打到 CAS 前缀上，
+服务端仍然返回登录页。现在只从 `/student/` 页面学习教务根（`Portal.noteUrl`），
+重新登录时清空（`Portal.clearBase`）。
+
+### 判定规则（`LoginDialog.ready`）
 
 | 平台 | 判定 |
 | --- | --- |
-| WebVPN | 没有可见密码框，且地址不是 `/login`，且（在 `/http/` 下 或 Cookie 里有 vpn 令牌） |
-| URP | 没有可见密码框，不是 `loginAction`，且地址含 `index.jsp` / `main.jsp` / `xskbcx` / `grade`，或标题像教务 |
+| 校园网 | Cookie 里有 `wengine_vpn_ticket`，且当前页不在认证跳转中 |
+| URP | 没有可见密码框，不是登录页，地址含 `/student/` 或以 `/index` 结尾，或标题像教务 |
 | 办事大厅 | 地址是 `ehall` / `xsfwpt` 且不在登录页 |
 
-只看 URL 会误判（WebVPN 登录后的资源门户也没有密码框），只看密码框也会误判
-（部分页面把登录表单藏在弹窗里）。所以两者结合，并且**每步都允许手动推进**：
-「这步已完成」按钮不受判定影响，用户永远能往下走。
+办事大厅**不在默认登录流程里**：点「办事大厅」里的功能时才按需登录。
+「这步已完成」按钮仍保留，判定不准时用户永远能手动往下走。
 
 ## 3. 登录态
 

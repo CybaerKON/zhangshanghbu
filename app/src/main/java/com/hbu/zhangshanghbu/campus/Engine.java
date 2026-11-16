@@ -327,7 +327,7 @@ public final class Engine {
                 real = o.optString("url", url);
                 Portal.noteUrl(real);
                 int pwd = o.optInt("pwd", 0);
-                logged = pwd == 0 && !Portal.loginPage(real);
+                logged = pwd == 0 && !Portal.loginPage(real) && !Portal.authBusy(real);
                 why = logged ? "" : "页面上还有登录表单";
             } catch (Exception e) {
                 why = "页面解析失败";
@@ -341,9 +341,14 @@ public final class Engine {
             public void onPageFinished(WebView v, String u) {
                 if (done[0]) return;
                 Portal.noteUrl(u);
+                /* CAS 纯跳转页（ticket / cas_login / loginAgain）上先别注入：
+                   这时候页面上既没有密码框也没有菜单，注进去只会得出「没登录」的错误结论。
+                   登录页本身还是要探（多等一会儿，给单点跳转留时间）。 */
+                if (Portal.authBusy(u) && !Portal.loginPage(u)) return;
+                long delay = Portal.authBusy(u) ? 1200L : 400L;
                 UI.postDelayed(() -> {
                     if (!done[0]) v.evaluateJavascript(raw(host, R.raw.probe), null);
-                }, 400);
+                }, delay);
             }
         });
         web.loadUrl(url);

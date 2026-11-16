@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">掌上hbu</string>
+    <string name="widget_desc">今天的课，一眼就能看见</string>
+    <string name="widget_empty">还没有课表</string>
+    <string name="widget_none">今天没有课</string>
+</resources>

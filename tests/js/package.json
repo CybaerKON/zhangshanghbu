@@ -1,0 +1,8 @@
+{
+  "name": "zshbu-js-tests",
+  "private": true,
+  "version": "2.0.0",
+  "description": "用 jsdom 跑 app 里真正的 res/raw/page.js，验证课表/成绩解析与登录判定",
+  "scripts": { "test": "node test.js" },
+  "devDependencies": { "jsdom": "^24.0.0" }
+}

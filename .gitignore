@@ -1,0 +1,24 @@
+# 构建产物（build.sh 生成，不入库）
+/build/
+*.apk
+*.ap_
+*.dex
+*.class
+
+# 测试依赖与中间产物（tests/run.sh 自动拉取）
+/tests/js/node_modules/
+/tests/jvm/lib/
+/tests/jvm/out/
+
+# 调试签名（本地生成；正式发布请换成自己的 keystore 并自行保管）
+/debug.keystore
+
+# 编辑器 / 系统
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# 调试时的界面 dump
+ui*.xml
+u_dump.xml

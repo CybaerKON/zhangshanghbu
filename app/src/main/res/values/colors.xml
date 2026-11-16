@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 品牌色：河大蓝 -->
+    <color name="brand">#0C4C8C</color>
+    <color name="brand_soft">#E7EFF9</color>
+
+    <color name="bg_page">#F2F4F8</color>
+    <color name="bg_surface">#FFFFFF</color>
+    <color name="text_primary">#151A22</color>
+    <color name="text_secondary">#5B6474</color>
+    <color name="text_tertiary">#8B93A3</color>
+    <color name="border_subtle">#E4E8F0</color>
+
+    <!-- 与 Palette.java 的 8 组色一一对应 -->
+    <color name="c0">#3B7BE8</color>
+    <color name="c1">#E8734A</color>
+    <color name="c2">#3FA37A</color>
+    <color name="c3">#9B6BDA</color>
+    <color name="c4">#D9A21B</color>
+    <color name="c5">#3F9FB8</color>
+    <color name="c6">#C9527A</color>
+    <color name="c7">#6E7FA8</color>
+</resources>

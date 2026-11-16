@@ -572,7 +572,8 @@ public final class LoginDialog {
         if (Portal.stage(url) != Portal.ST_INSIDE) return false;
         String u = url.toLowerCase();
         if (Portal.P_JW.equals(platform)) {
-            boolean path = u.contains("/student/") || u.endsWith("/index");
+            /* 强智的地址常带 ;jsessionid=…，用 contains 而不是 endsWith */
+            boolean path = u.contains("/student/") || u.contains("/index");
             boolean title = lastTitle.contains("URP") || lastTitle.contains("教务");
             return path || title;
         }

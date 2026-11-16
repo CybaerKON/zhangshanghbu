@@ -4,7 +4,7 @@
 个人开发，**非学校官方发布**。
 
 - 仓库：<https://github.com/CybaerKON/zhangshanghbu>（公开仓库，欢迎提 Issue / PR）
-- 包名 `com.hbu.zhangshanghbu` · 版本 1.0.0beta2（versionCode 6）· minSdk 26 / targetSdk 34
+- 包名 `com.hbu.zhangshanghbu` · 版本 1.0.0beta3（versionCode 7）· minSdk 26 / targetSdk 34
 - 版本规则：`1.0.0betaN`，每出一次测试包 N +1（versionCode 单调递增，保证能覆盖安装）
 - 许可：**AGPL-3.0**（可以改、可以商用，但改完必须同样开源 —— 即**不允许闭源商业版**），
   第三方来源见 [THIRD-PARTY.md](THIRD-PARTY.md)
@@ -257,6 +257,7 @@ zhangshanghbu/
 
 ## 十四、版本
 
-见 [CHANGELOG.md](CHANGELOG.md)。当前 **1.0.0beta2**（versionCode 6）：
-整页缩放与课表排版修正、空教室原生查询、考试安排表格解析、登录后自动带出学生资料、
-校历改为占位、许可证与关于页许可说明。
+见 [CHANGELOG.md](CHANGELOG.md)。当前 **1.0.0beta3**（versionCode 7）：
+修复 CAS 登录后被弹回登录页；统一认证后静默进入教务，不再逐步登录。
+1.0.0beta2 的内容：整页缩放与课表排版修正、空教室原生查询、考试表格解析、
+登录后自动带出学生资料、校历占位、许可证与关于页许可说明。
